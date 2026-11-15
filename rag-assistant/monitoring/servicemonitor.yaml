@@ -1,0 +1,6 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata: {name: rag-assistant, namespace: rag, labels: {release: monitoring}}
+spec:
+  selector: {matchLabels: {app: rag-assistant}}
+  endpoints: [{port: http, path: /metrics, interval: 15s}]

@@ -1,0 +1,45 @@
+name: ci
+on:
+  push: {branches: [main]}
+  pull_request:
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.11", cache: pip}
+      - run: pip install -r requirements.txt ruff
+      - run: ruff check app tests
+      - run: pytest -q
+
+  build-push:
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions: {contents: read, packages: write}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with: {registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}"}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:latest
+
+  # Docker Desktop's cluster is local, so CD runs on a self-hosted runner on that machine.
+  deploy:
+    needs: build-push
+    runs-on: self-hosted
+    if: vars.DEPLOY_LOCAL == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          kubectl apply -f k8s/
+          kubectl -n rag set image deploy/rag-assistant app=${{ env.IMAGE }}:${{ github.sha }}
+          kubectl -n rag rollout status deploy/rag-assistant --timeout=180s

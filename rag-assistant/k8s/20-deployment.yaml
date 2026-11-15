@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: rag-assistant, namespace: rag}
+spec:
+  replicas: 1            # Chroma uses an embedded on-disk store (RWO volume) -> single replica
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: rag-assistant}}
+  template:
+    metadata: {labels: {app: rag-assistant}}
+    spec:
+      securityContext: {fsGroup: 10001}
+      containers:
+        - name: app
+          image: rag-assistant:local
+          imagePullPolicy: IfNotPresent
+          ports: [{name: http, containerPort: 8000}]
+          envFrom:
+            - configMapRef: {name: rag-config}
+            - secretRef: {name: anthropic}
+          resources:
+            requests: {cpu: 250m, memory: 768Mi}
+            limits: {cpu: "1", memory: 1536Mi}
+          readinessProbe: {httpGet: {path: /healthz, port: http}, initialDelaySeconds: 10, periodSeconds: 10}
+          livenessProbe: {httpGet: {path: /healthz, port: http}, initialDelaySeconds: 30, periodSeconds: 20}
+          volumeMounts: [{name: data, mountPath: /data}]
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: rag-data}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rag-assistant
+  namespace: rag
+  labels: {app: rag-assistant}
+spec:
+  type: LoadBalancer      # Docker Desktop exposes this on localhost:80
+  selector: {app: rag-assistant}
+  ports: [{name: http, port: 80, targetPort: http}]

@@ -1,0 +1,24 @@
+{
+  "title": "RAG Knowledge Assistant", "uid": "rag-assistant", "schemaVersion": 39, "refresh": "10s",
+  "time": {"from": "now-30m", "to": "now"},
+  "panels": [
+    {"id":1,"type":"timeseries","title":"Request rate by path","gridPos":{"x":0,"y":0,"w":12,"h":8},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},"expr":"sum by (path) (rate(rag_http_requests_total[1m]))","legendFormat":"{{path}}"}]},
+    {"id":2,"type":"timeseries","title":"HTTP p95 latency (s)","gridPos":{"x":12,"y":0,"w":12,"h":8},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},"expr":"histogram_quantile(0.95, sum by (le,path) (rate(rag_http_request_seconds_bucket[5m])))","legendFormat":"{{path}}"}]},
+    {"id":3,"type":"timeseries","title":"Retrieval vs LLM p95 (s)","gridPos":{"x":0,"y":8,"w":12,"h":8},
+     "targets":[
+      {"datasource":{"type":"prometheus","uid":"prometheus"},"expr":"histogram_quantile(0.95, sum by (le) (rate(rag_retrieval_seconds_bucket[5m])))","legendFormat":"retrieval"},
+      {"datasource":{"type":"prometheus","uid":"prometheus"},"expr":"histogram_quantile(0.95, sum by (le) (rate(rag_llm_seconds_bucket[5m])))","legendFormat":"llm"}]},
+    {"id":4,"type":"stat","title":"Chunks indexed","gridPos":{"x":12,"y":8,"w":4,"h":4},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},"expr":"max(rag_chunks_indexed)"}]},
+    {"id":5,"type":"stat","title":"Uploads (ok)","gridPos":{"x":16,"y":8,"w":4,"h":4},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},"expr":"sum(rag_uploads_total{result=\"ok\"})"}]},
+    {"id":6,"type":"stat","title":"LLM errors","gridPos":{"x":20,"y":8,"w":4,"h":4},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},"expr":"sum(rag_llm_errors_total)"}]},
+    {"id":7,"type":"timeseries","title":"5xx error rate","gridPos":{"x":12,"y":12,"w":12,"h":4},
+     "targets":[{"datasource":{"type":"prometheus","uid":"prometheus"},"expr":"sum(rate(rag_http_requests_total{status=~\"5..\"}[1m]))","legendFormat":"5xx/s"}]},
+    {"id":8,"type":"logs","title":"Application logs (Loki)","gridPos":{"x":0,"y":16,"w":24,"h":10},
+     "targets":[{"datasource":{"type":"loki","uid":"loki"},"expr":"{namespace=\"rag\", app=\"rag-assistant\"} | json"}]}
+  ]
+}
